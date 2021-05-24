@@ -206,47 +206,6 @@ def app():
 
             st.pyplot(fig)
 
-    def FAI_IPQC_reviewby_day(data):
-        # Read in data & create total column
-        stacked_bar_data = data.loc[:, 'IPQC_2_start':'Whole_time']
-        the_range = list(range(stacked_bar_data.shape[0]))  # range number
-        fig, ax = plt.subplots()
-        # Set general plot properties
-        # sns.set_context({"figure.figsize": (10, 5)})
-
-        ax = sns.barplot(x=the_range,
-                         y=stacked_bar_data.Whole_time, color="brown")
-        sns.set_style("white")
-
-        # Plot 2 - overlay - "bottom" series
-        bottom_plot = sns.barplot(ax=ax, x=the_range,
-                                  y=stacked_bar_data.IPQC_2_start, color="gray")
-        topbar = plt.Rectangle((0, 0), 1, 1, fc="brown", edgecolor='none')
-        bottombar = plt.Rectangle((0, 0), 1, 1, fc='gray',  edgecolor='none')
-
-        l = plt.legend([bottombar, topbar], ['IPQC_2_start', 'measure_2_finish'],
-                       loc=1, ncol=1, prop={'size': 12})
-        l.draw_frame(False)
-
-        # #Optional code - Make plot look nicer
-        sns.despine(left=True)
-        bottom_plot.set_ylabel("Duration (hrs)")
-        bottom_plot.set_xlabel("Day time")
-
-        plt.tick_params(
-            axis='x',          # changes apply to the x-axis
-            which='both',      # both major and minor ticks are affected
-            bottom=False,      # ticks along the bottom edge are off
-            top=False,         # ticks along the top edge are off
-            labelbottom=False)  # labels along the bottom edge are off
-
-        # Set fonts to consistent 16pt size
-        for item in ([bottom_plot.xaxis.label, bottom_plot.yaxis.label] +
-                     bottom_plot.get_xticklabels() + bottom_plot.get_yticklabels()):
-            item.set_fontsize(16)
-
-        st.pyplot(fig)
-
     # Initiaion
     root = 'database/'
     database = get_database(root)
@@ -263,8 +222,10 @@ def app():
             str(range_dates[1]), format=time_format) + pd.Timedelta(hours=23, minutes=59)
 
     # extract the FAI data within the period
-    mask = (database.index > start_date) & (database.index <= end_date)
-    data_in_duration = database.loc[mask]
+        mask = (database.index > start_date) & (database.index <= end_date)
+        data_in_duration = database.loc[mask]
+    else:
+        st.info('Please specify the time range or a single date')
 
     # Control the precision
     # hourly_basis = st.sidebar.radio('Hourly basis?', [False, True])
@@ -275,59 +236,59 @@ def app():
     # Know the FAI number
     point_or_customization = st.sidebar.select_slider(
         'Fixed FAIs or preferred?', ['Fixed', 'Preference'])
-
-    if point_or_customization == 'Fixed':
-        number = st.sidebar.text_input('FAI #?')
-        FAI_number = 'FAI' + number + '_'
-        filter_FAI = [col for col in data_in_duration if col.startswith(FAI_number)]
-    else:
-        filter_FAI = st.sidebar.multiselect(
-            'Which FAIs?', options=FAI_config.index, help='Select at least 2 FAIs')
+    if point_or_customization:
+        if point_or_customization == 'Fixed':
+            number = st.sidebar.text_input('FAI #?')
+            FAI_number = 'FAI' + number + '_'
+            filter_FAI = [col for col in data_in_duration if col.startswith(FAI_number)]
+        else:
+            filter_FAI = st.sidebar.multiselect(
+                'Which FAIs?', options=FAI_config.index, help='Select at least 2 FAIs')
 
     # filter_FAI = [col for col in data_in_duration if col.startswith(FAI_number)]
     # if not filter_FAI:
     #     st.error('No such FAI')
     # else:
-    data = data_in_duration[filter_FAI]
+    if filter_FAI:
+        data = data_in_duration[filter_FAI]
 
-    violin_or_box = st.sidebar.select_slider('Violin/Box', ['violin', 'box'])
-    if violin_or_box:
-        st.markdown('## ' + violin_or_box.capitalize() + 'plot over the duration selected ##')
-        fig, ax = plt.subplots()
-        g = sns.catplot(kind=violin_or_box, data=data)
-        # g = sns.stripplot(data=data, color="orange", jitter=0.2, size=2.5)
-        g.fig.set_size_inches(10, 5)
-        g.set_xticklabels(rotation=40)
-        add_spec_h(FAI_config,  data)
-        st.pyplot(g)
+        violin_or_box = st.sidebar.select_slider('Violin/Box', ['violin', 'box'])
+        if violin_or_box:
+            st.markdown('## ' + violin_or_box.capitalize() + 'plot over the duration selected ##')
+            fig, ax = plt.subplots()
+            g = sns.catplot(kind=violin_or_box, data=data)
+            # g = sns.stripplot(data=data, color="orange", jitter=0.2, size=2.5)
+            g.fig.set_size_inches(10, 5)
+            g.set_xticklabels(rotation=40)
+            add_spec_h(FAI_config,  data)
+            st.pyplot(g)
 
-    FAI_specific = st.sidebar.selectbox('Which FAI?', options=FAI_config.index)
-    # if density:
-    density = st.sidebar.button('Density')
-    if density:
-        data_speific = data_in_duration.loc[:, FAI_specific]
-        fig, ax = plt.subplots()
-        # sns.histplot(x=data_speific, color="blue", kde=True,
-        #              line_kws={'linewidth': 2.5, ''}, stat="density", linewidth=0.5)
-        sns.histplot(x=data_speific, color='cyan', stat='density')
-        sns.kdeplot(x=data_speific, color='blue', linewidth=3)
-        add_spec_v(FAI_config,  data_speific)
-        st.pyplot(fig)
+        FAI_specific = st.sidebar.selectbox('Which FAI?', options=FAI_config.index)
+        # if density:
+        density = st.sidebar.button('Density')
+        if density:
+            data_speific = data_in_duration.loc[:, FAI_specific]
+            fig, ax = plt.subplots()
+            # sns.histplot(x=data_speific, color="blue", kde=True,
+            #              line_kws={'linewidth': 2.5, ''}, stat="density", linewidth=0.5)
+            sns.histplot(x=data_speific, color='cyan', stat='density')
+            sns.kdeplot(x=data_speific, color='blue', linewidth=3)
+            add_spec_v(FAI_config,  data_speific)
+            st.pyplot(fig)
 
-    st.sidebar.markdown('## Review by H/D/W/M')
+        st.sidebar.markdown('## Review by H/D/W/M')
 
-    precision = st.sidebar.select_slider('Which precision?', ['Hour', 'Day', 'Week', 'Month'])
-    mode = st.sidebar.select_slider('Box/Violin/Density?', ['box', 'violin', 'Density'])
-    # st.dataframe(data)
-    # st.write(data.shape[1])
-    df_union, length = get_df_at_different_points_duration(data, precision[0])
-    ready = st.sidebar.checkbox('Ready?')
-    if ready:
-        if (mode == 'box') | (mode == 'violin'):
-            plot_different_points_duration(df_union, filter_FAI, FAI_config, length, mode)
-        else:
-            plot_different_points_kde_duration(df_union, filter_FAI, FAI_config, length)
+        precision = st.sidebar.select_slider('Which precision?', ['Hour', 'Day', 'Week', 'Month'])
+        mode = st.sidebar.select_slider('Box/Violin/Density?', ['box', 'violin', 'Density'])
+        # st.dataframe(data)
+        # st.write(data.shape[1])
+        df_union, length = get_df_at_different_points_duration(data, precision[0])
+        ready = st.sidebar.checkbox('Ready?')
+        if ready:
+            if (mode == 'box') | (mode == 'violin'):
+                plot_different_points_duration(df_union, filter_FAI, FAI_config, length, mode)
+            else:
+                plot_different_points_kde_duration(df_union, filter_FAI, FAI_config, length)
 
-    ipqc_data = pd.read_excel('database/FAI_IPQC_time_monitor-2021-05-17.xlsx',
-                              index_col='FAI_IPQC_time')
-    FAI_IPQC_reviewby_day(ipqc_data)
+    else:
+        st.info('Please specify FAIs')

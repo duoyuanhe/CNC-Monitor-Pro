@@ -188,13 +188,15 @@ def app():
             data_in_duration, FAI_config, FAI_point, n, frequency)
 
         st.markdown('## Top issue CNC of ' + FAI_point + ' :')
-        st.dataframe(CNC_IPQC_frequency)
-
-        fig, ax = plt.subplots()
-        ax = sns.barplot(x=CNC_IPQC_frequency.index, y='NG_rate',
-                         data=CNC_IPQC_frequency)
-        # ax.bar(CNC_IPQC_frequency.index, CNC_IPQC_frequency.NG_rate)
-        st.pyplot(fig)
+        if not CNC_IPQC_frequency.empty:
+            st.dataframe(CNC_IPQC_frequency)
+            fig, ax = plt.subplots()
+            ax = sns.barplot(x=CNC_IPQC_frequency.index, y='NG_rate',
+                             data=CNC_IPQC_frequency)
+            # ax.bar(CNC_IPQC_frequency.index, CNC_IPQC_frequency.NG_rate)
+            st.pyplot(fig)
+        else:
+            st.markdown('# Not existed')
 
     else:
         st.info('Please give a time range or single date, and a specific FAI')
