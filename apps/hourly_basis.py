@@ -13,6 +13,7 @@ import itertools
 
 
 def app():
+
     def get_database(root):
         pathss = []
         for file in os.listdir(root):
@@ -209,9 +210,9 @@ def app():
     # Initiaion
     root = 'database/'
     database = get_database(root)
+    cnc_cell = pd.read_excel(root + 'CNC_cell.xlsx')
     FAI_config = pd.read_excel(root + 'FAI_config.xlsx', index_col='FAI#')
     FAI_config = FAI_config.iloc[:, 1:]
-
     # start of the streamlit
     # define the range of time
     range_dates = st.sidebar.date_input('What range of dates are you interested in?', value=[])
@@ -220,75 +221,88 @@ def app():
         start_date = pd.to_datetime(str(range_dates[0]), format=time_format)
         end_date = pd.to_datetime(
             str(range_dates[1]), format=time_format) + pd.Timedelta(hours=23, minutes=59)
-
     # extract the FAI data within the period
         mask = (database.index > start_date) & (database.index <= end_date)
-        data_in_duration = database.loc[mask]
+        data_in_duration = database.loc[mask].sort_index()
     else:
         st.info('Please specify the time range or a single date')
+    by_cell = st.sidebar.checkbox('By CNC cell?')
+    if by_cell:
+        cell_number = st.sidebar.multiselect('Select the CNC cell', cnc_cell.columns)
+        data_by_cell = pd.DataFrame()
+        if cell_number:
+            data_in_duration['Machine'] = [i[:4] for i in data_in_duration['Machine']]
+            data_by_cell = pd.DataFrame()
+            for cell in cell_number:
+                mask_cell = data_in_duration['Machine'].isin(cnc_cell[cell])
+                data_in_duration = data_in_duration[mask_cell]
+                data_by_cell = pd.concat([data_by_cell, data_in_duration])
 
-    # Control the precision
-    # hourly_basis = st.sidebar.radio('Hourly basis?', [False, True])
-    # if hourly_basis:
-    #     start_time = st.sidebar.time_input('Start timing')
-    #     end_time = st.sidebar.time_input('End timing')
+            data_in_duration = data_by_cell
 
-    # Know the FAI number
+        # st.dataframe(data_in_duration)
+
     point_or_customization = st.sidebar.select_slider(
         'Fixed FAIs or preferred?', ['Fixed', 'Preference'])
     if point_or_customization:
         if point_or_customization == 'Fixed':
             number = st.sidebar.text_input('FAI #?')
-            FAI_number = 'FAI' + number + '_'
-            filter_FAI = [col for col in data_in_duration if col.startswith(FAI_number)]
+            if number:
+                FAI_number = 'FAI' + number + '_'
+                filter_FAI = [col for col in data_in_duration if col.startswith(FAI_number)]
+                if filter_FAI:
+                    data = data_in_duration[filter_FAI]
+                    violin_or_box = st.sidebar.select_slider('Box/Violin', ['box', 'violin'])
+                    if violin_or_box:
+                        st.markdown('### ' + violin_or_box.capitalize() +
+                                    'plot over the duration selected')
+                        fig, ax = plt.subplots()
+                        g = sns.catplot(kind=violin_or_box, data=data)
+                        # g = sns.stripplot(data=data, color="orange", jitter=0.2, size=2.5)
+                        g.fig.set_size_inches(10, 5)
+                        g.set_xticklabels(rotation=40)
+                        add_spec_h(FAI_config,  data)
+                        st.pyplot(g)
+
+                else:
+                    st.info('Please specify FAIs')
         else:
             filter_FAI = st.sidebar.multiselect(
                 'Which FAIs?', options=FAI_config.index, help='Select at least 2 FAIs')
+            if filter_FAI:
+                data = data_in_duration[filter_FAI]
+                violin_or_box = st.sidebar.select_slider('Box/Violin', ['box', 'violin'])
+                if violin_or_box:
+                    st.markdown('### ' + violin_or_box.capitalize() +
+                                'plot over the duration selected')
+                    fig, ax = plt.subplots()
+                    g = sns.catplot(kind=violin_or_box, data=data)
+                    # g = sns.stripplot(data=data, color="orange", jitter=0.2, size=2.5)
+                    g.fig.set_size_inches(10, 5)
+                    g.set_xticklabels(rotation=40)
+                    add_spec_h(FAI_config,  data)
+                    st.pyplot(g)
 
-    # filter_FAI = [col for col in data_in_duration if col.startswith(FAI_number)]
-    # if not filter_FAI:
-    #     st.error('No such FAI')
-    # else:
-    if filter_FAI:
-        data = data_in_duration[filter_FAI]
+        review_by_day = st.sidebar.checkbox('Review by H/D/W/M?')
+        if review_by_day:
+            # st.sidebar.markdown('## Review by H/D/W/M')
 
-        violin_or_box = st.sidebar.select_slider('Violin/Box', ['violin', 'box'])
-        if violin_or_box:
-            st.markdown('## ' + violin_or_box.capitalize() + 'plot over the duration selected ##')
-            fig, ax = plt.subplots()
-            g = sns.catplot(kind=violin_or_box, data=data)
-            # g = sns.stripplot(data=data, color="orange", jitter=0.2, size=2.5)
-            g.fig.set_size_inches(10, 5)
-            g.set_xticklabels(rotation=40)
-            add_spec_h(FAI_config,  data)
-            st.pyplot(g)
-
-        FAI_specific = st.sidebar.selectbox('Which FAI?', options=FAI_config.index)
-        # if density:
-        density = st.sidebar.button('Density')
-        if density:
-            data_speific = data_in_duration.loc[:, FAI_specific]
-            fig, ax = plt.subplots()
-            # sns.histplot(x=data_speific, color="blue", kde=True,
-            #              line_kws={'linewidth': 2.5, ''}, stat="density", linewidth=0.5)
-            sns.histplot(x=data_speific, color='cyan', stat='density')
-            sns.kdeplot(x=data_speific, color='blue', linewidth=3)
-            add_spec_v(FAI_config,  data_speific)
-            st.pyplot(fig)
-
-        st.sidebar.markdown('## Review by H/D/W/M')
-
-        precision = st.sidebar.select_slider('Which precision?', ['Hour', 'Day', 'Week', 'Month'])
-        mode = st.sidebar.select_slider('Box/Violin/Density?', ['box', 'violin', 'Density'])
-        # st.dataframe(data)
-        # st.write(data.shape[1])
-        df_union, length = get_df_at_different_points_duration(data, precision[0])
-        ready = st.sidebar.checkbox('Ready?')
-        if ready:
-            if (mode == 'box') | (mode == 'violin'):
-                plot_different_points_duration(df_union, filter_FAI, FAI_config, length, mode)
-            else:
-                plot_different_points_kde_duration(df_union, filter_FAI, FAI_config, length)
-
-    else:
-        st.info('Please specify FAIs')
+            precision = st.sidebar.select_slider(
+                'Which precision?', ['Hour', 'Day', 'Week', 'Month'])
+            mode = st.sidebar.select_slider(
+                'Box/Violin/Density?', ['box', 'violin', 'Density'])
+            # st.dataframe(data)
+            # st.write(data.shape[1])
+            df_union, length = get_df_at_different_points_duration(data, precision[0])
+            ready = st.sidebar.checkbox('Ready?')
+            if ready:
+                if (mode == 'box') | (mode == 'violin'):
+                    st.markdown('### ' + mode +
+                                'plot of the FAI selected by ' + precision)
+                    plot_different_points_duration(
+                        df_union, filter_FAI, FAI_config, length, mode)
+                else:
+                    st.markdown('### ' + 'KDE' +
+                                'plot of the FAI selected by ' + precision)
+                    plot_different_points_kde_duration(
+                        df_union, filter_FAI, FAI_config, length)

@@ -1,7 +1,6 @@
 import pandas as pd
 import numpy as np
 import os
-import json
 from datetime import datetime
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -35,7 +34,7 @@ def get_data(database, range_dates, FAI_point):
     data_in_duration = database.loc[mask]
     # data_in_duration = data_in_duration.sort_index()
     data_in_duration = data_in_duration.set_index('Machine')
-
+    st.dataframe(data_in_duration.value_counts())
     return data_in_duration.loc[:, FAI_point]
 
 
@@ -89,6 +88,13 @@ def out_of_spec(s, FAI_number, FAI_config):
         return 0
 
 
+def to_which_cell(s, cnc_cell):
+    for cell in cnc_cell.columns:
+        # st.dataframe(cnc_cell[cell])
+        if s in list(cnc_cell[cell]):
+            return cell
+
+
 def get_top_issue_CNC(data_no_T, FAI_config, FAI_point, n=None, frequency=None):
 
     if not n:
@@ -110,17 +116,17 @@ def get_top_issue_CNC(data_no_T, FAI_config, FAI_point, n=None, frequency=None):
 
     NG_rate = [100 * result[index].sum()/CNC_IPQC_frequency.loc[index, 'Check_frequency']
                for index in CNC_IPQC_frequency.index]
-    CNC_IPQC_frequency['NG_rate'] = NG_rate
+    CNC_IPQC_frequency['NG_rate%'] = NG_rate
 
     CNC_IPQC_frequency = CNC_IPQC_frequency[CNC_IPQC_frequency['Check_frequency'] >= frequency]
-    CNC_IPQC_frequency = CNC_IPQC_frequency[CNC_IPQC_frequency['NG_rate'] > 0]
+    CNC_IPQC_frequency = CNC_IPQC_frequency[CNC_IPQC_frequency['NG_rate%'] > 0]
 
     if CNC_IPQC_frequency.empty:
         st.info('No CNC checked more than ' + str(frequency) + ' times')
 
-    CNC_IPQC_frequency.sort_values('NG_rate', ascending=False, inplace=True)
+    CNC_IPQC_frequency.sort_values('NG_rate%', ascending=False, inplace=True)
 
-    return CNC_IPQC_frequency.head(n)
+    return CNC_IPQC_frequency.round(2).head(n)
 
 
 def get_top_issue_FAI_plots(data_in_duration, top_issue_FAI, FAI_config):
@@ -172,6 +178,7 @@ def app():
     database = get_database(root)
     FAI_config = pd.read_excel(root + 'FAI_config.xlsx', index_col='FAI#')
     FAI_config = FAI_config.iloc[:, 1:]
+    cnc_cell = pd.read_excel(root + 'CNC_cell.xlsx')
 
     # start of the streamlit
     # define the range of time
@@ -180,18 +187,23 @@ def app():
     if range_dates and FAI_point:  # once dates typed in
         data_in_duration = get_data(database, range_dates, FAI_point)
 
-        n = st.sidebar.slider('How many top issues would like to see?', 3, 10)
+        n = st.sidebar.slider('How many top issue CNCs would like to see?', 3, 10)
 
         frequency = st.sidebar.slider('Lowest checking time?', 3, 10)
 
         CNC_IPQC_frequency = get_top_issue_CNC(
             data_in_duration, FAI_config, FAI_point, n, frequency)
 
-        st.markdown('## Top issue CNC of ' + FAI_point + ' :')
+        machine = pd.Series(CNC_IPQC_frequency.index)
+        cell_no = machine.apply(to_which_cell, args=(cnc_cell,))
+        CNC_IPQC_frequency.insert(0, 'Cell', cell_no.tolist(), True)
+
+        st.markdown('### Top ' + str(n) + ' issue CNC of ' + FAI_point + ' :')
         if not CNC_IPQC_frequency.empty:
             st.dataframe(CNC_IPQC_frequency)
+            st.markdown('### Top NG% CNC')
             fig, ax = plt.subplots()
-            ax = sns.barplot(x=CNC_IPQC_frequency.index, y='NG_rate',
+            ax = sns.barplot(x=CNC_IPQC_frequency.index, y='NG_rate%',
                              data=CNC_IPQC_frequency)
             # ax.bar(CNC_IPQC_frequency.index, CNC_IPQC_frequency.NG_rate)
             st.pyplot(fig)

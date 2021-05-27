@@ -93,32 +93,32 @@ def get_top_issue_FAI_and_CNC(data_no_T, FAI_config, n=None):
     if not n:
         n = 5
 
-    top_issue_CNC = {}
+    # top_issue_CNC = {}
     top_issue_FAI = {}
 
     for column in data_no_T.columns:
         data_no_T[column] = data_no_T[column].apply(out_of_spec, args=(column, FAI_config))
 
-    issue_CNC = data_no_T.sum(axis=1).sort_values(ascending=False)
+    # issue_CNC = data_no_T.sum(axis=1).sort_values(ascending=False)
 
     issue_FAI = data_no_T.sum(axis=0).sort_values(ascending=False)
-    i = 0
-    for CNC in issue_CNC.index:
-        if i == n:
-            break
-        elif CNC[:4] not in top_issue_CNC.keys():
-            top_issue_CNC[CNC[:4]] = issue_CNC[CNC].sum()
-            i += 1
+    # i = 0
+    # for CNC in issue_CNC.index:
+    #     if i == n:
+    #         break
+    #     elif CNC[:4] not in top_issue_CNC.keys():
+    #         top_issue_CNC[CNC[:4]] = issue_CNC[CNC].sum()
+    #         i += 1
 
     j = 0
     for FAI in issue_FAI.index:
         if j == n:
             break
-        elif FAI[:5] not in top_issue_FAI.keys():
-            top_issue_FAI[FAI[:5]] = issue_FAI[FAI]
+        elif FAI not in top_issue_FAI:
+            top_issue_FAI[FAI] = issue_FAI[FAI]
             j += 1
 
-    return top_issue_FAI, top_issue_CNC
+    return top_issue_FAI
 
 
 def get_top_issue_FAI_plots(data_in_duration, top_issue_FAI, FAI_config):
@@ -181,7 +181,7 @@ def app():
 
         data_no_T = data_in_duration.set_index('Machine')
 
-        top_issue_FAI, top_issue_CNC = get_top_issue_FAI_and_CNC(data_no_T, FAI_config, n)
+        top_issue_FAI = get_top_issue_FAI_and_CNC(data_no_T, FAI_config, n)
 
         st.markdown('The top issue FAIs are:')
         st.dataframe(pd.Series(top_issue_FAI, name='NG counts'))

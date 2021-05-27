@@ -109,6 +109,7 @@ def barchart_of_whole_IPQC_time(data):
     ax = sns.histplot(data=data.Whole_time)
     ax.set_xlabel('IPQC to measure finished (Hrs)')
     ax.set_ylabel('Counts')
+    ax.set_ylabel('Hrs')
     st.pyplot(fig)
 
 
@@ -131,6 +132,7 @@ def boxplot_of_whole_time(whole_data):
     fig, ax = plt.subplots()
     ax = sns.boxplot(data=whole_data)
     ax = sns.swarmplot(data=whole_data, color=".5", size=4.5)
+    ax.set_ylabel('Hrs')
     st.pyplot(fig)
 
 
@@ -145,7 +147,10 @@ def app():
 
         overall = st.sidebar.checkbox('See overall situtaion?')
         if overall:
+            st.markdown('### IPQC interval during the selected period')
             barchart_of_whole_IPQC_time(data_in_duration)
+
+            st.markdown('### Boxplot of (IPQC to measure finished) time')
             whole_data = data_of_whole_time(data_in_duration)
             boxplot_of_whole_time(whole_data)
 
